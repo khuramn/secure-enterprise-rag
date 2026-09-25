@@ -1,3 +1,24 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Terraform variable files that may contain secrets
+*.tfvars
+!*.tfvars.example
+
+# Environment files
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
