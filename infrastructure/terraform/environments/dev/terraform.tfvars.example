@@ -1,0 +1,4 @@
+location     = "uksouth"
+environment  = "dev"
+project_name = "ai-rag"
+owner        = "your-name"
