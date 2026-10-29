@@ -4,9 +4,15 @@
 *.tfstate.*
 .terraform.lock.hcl
 
+# Local security audit logs
+app/ingestion/logs/
+
 # Terraform variable files that may contain secrets
 *.tfvars
 !*.tfvars.example
+
+# Terraform backend configuration
+backend.hcl
 
 # Environment files
 .env
@@ -237,3 +243,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Downloaded embedding model
+app/ingestion/.cache/
+
+# Local source-code backups
+*.py.bak
+*.bak

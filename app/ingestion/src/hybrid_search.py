@@ -1,85 +1,98 @@
 
 import os
-
 from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
 
 from embeddings import generate_embedding
+from azure.identity import DefaultAzureCredential
+from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
+
 from secure_search import (
     TEST_USERS,
     build_authorization_filter,
 )
 
 
-SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_ENDPOINT"]
 INDEX_NAME = "enterprise-documents"
 
 
-def hybrid_search(username: str, query: str):
-    # Demo identities only.
-    # Never accept group memberships directly from users.
-    if username not in TEST_USERS:
-        raise PermissionError("Unknown user")
-
-    if not query or not query.strip():
+def retrieve(client, groups, query, mode="hybrid", *, embed=None):
+    authorization_filter = build_authorization_filter(groups)
+    if not isinstance(query, str) or not query.strip():
         raise ValueError("Search query cannot be empty")
-
-    user_groups = TEST_USERS[username]
-
-    # Server-side authorization based on trusted group membership
-    authorization_filter = build_authorization_filter(
-        user_groups
-    )
-
-    # Generate a vector for the user's question
-    query_vector = generate_embedding(query)
-
-    credential = DefaultAzureCredential()
-
-    search_client = SearchClient(
-        endpoint=SEARCH_ENDPOINT,
-        index_name=INDEX_NAME,
-        credential=credential,
-    )
-
-    vector_query = VectorizedQuery(
-        vector=query_vector,
-        k_nearest_neighbors=5,
-        fields="content_vector",
-    )
-
-    results = search_client.search(
-        search_text=query,
-        vector_queries=[vector_query],
-        vector_filter_mode="preFilter",
-        filter=authorization_filter,
-        select=[
-            "document_id",
-            "title",
-            "classification",
-            "allowed_groups",
-            "content",
-        ],
-        top=5,
-        include_total_count=True,
-    )
-
-    documents = list(results)
-
-    print(f"\nUser: {username}")
-    print(f"Groups: {user_groups}")
-    print(f"Question: {query}")
-    print(f"Authorization filter: {authorization_filter}")
-    print(f"Authorized results: {len(documents)}")
-
+    if mode not in {"keyword", "vector", "hybrid"}:
+        raise ValueError("Unknown search mode")
+    options = dict(filter=authorization_filter, select=[
+        "document_id", "title", "classification", "allowed_groups", "content"
+    ], top=5)
+    if mode != "keyword":
+        if embed is None:
+            from embeddings import generate_embedding
+            embed = generate_embedding
+        options.update(vector_queries=[VectorizedQuery(
+            vector=embed(query), k_nearest_neighbors=5, fields="content_vector"
+        )], vector_filter_mode="preFilter")
+    documents = list(client.search(search_text=query if mode != "vector" else None, **options))
+    # Defense in depth: never pass a result with a missing or mismatched ACL to the model.
     for document in documents:
-        print(
-            f"  {document['document_id']} "
-            f"- {document['title']}"
-        )
-
+        acl = document.get("allowed_groups")
+        if not isinstance(acl, list) or not all(isinstance(g, str) for g in acl) or not set(acl).intersection(groups):
+            raise PermissionError("Search returned an unauthorized document")
     return documents
+
+
+def hybrid_search(username, query):
+    from identity import VerifiedIdentity
+    if isinstance(username, VerifiedIdentity):
+        groups = username.acl_labels
+    elif isinstance(username, str) and username in TEST_USERS:
+        # Compatibility for local CLI regression scripts only; API accepts no username.
+        groups = TEST_USERS[username]
+    else:
+        raise PermissionError("Unknown user")
+    build_authorization_filter(groups)
+    with DefaultAzureCredential() as credential:
+        with SearchClient(endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
+                          index_name=INDEX_NAME, credential=credential) as client:
+            return retrieve(client, groups, query)
+
+
+def hybrid_search_for_groups(
+    allowed_groups: tuple[str, ...],
+    query: str,
+):
+    """
+    Perform authorization-aware retrieval using groups
+    derived from a validated Microsoft Entra access token.
+    """
+
+    trusted_groups = set(allowed_groups)
+
+    valid_groups = {
+        "finance-team",
+        "employees",
+    }
+
+    if not trusted_groups:
+        raise PermissionError("No authorized groups")
+
+    if not trusted_groups.issubset(valid_groups):
+        raise PermissionError("Unknown authorization group")
+
+    with DefaultAzureCredential() as credential:
+        with SearchClient(
+            endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
+            index_name=INDEX_NAME,
+            credential=credential,
+        ) as client:
+            return retrieve(
+                client,
+                tuple(sorted(trusted_groups)),
+                query,
+                mode="hybrid",
+            )
 
 
 if __name__ == "__main__":

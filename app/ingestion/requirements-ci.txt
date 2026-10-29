@@ -1,0 +1,8 @@
+fastapi
+httpx
+azure-identity
+azure-search-documents
+openai
+msal
+requests
+PyJWT[crypto]
