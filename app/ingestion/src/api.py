@@ -1,5 +1,7 @@
 
-from fastapi import Depends, FastAPI, HTTPException
+import uuid
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from entra_auth import (
@@ -7,6 +9,7 @@ from entra_auth import (
     get_current_user,
 )
 from rag_pipeline import answer_question
+from audit_logger import audit_event
 
 
 app = FastAPI(
@@ -16,6 +19,41 @@ app = FastAPI(
         "Enterprise RAG API protected by Microsoft Entra ID"
     ),
 )
+
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        response = Response(
+            content='{"detail":"Internal Server Error"}',
+            status_code=500,
+            media_type="application/json",
+        )
+
+    if response.status_code == 401:
+        audit_event(
+            "api.authentication.denied",
+            request_id,
+            "anonymous",
+            "denied",
+            reason="authentication_failed",
+        )
+    elif response.status_code >= 500:
+        audit_event(
+            "api.request.failed",
+            request_id,
+            "anonymous",
+            "error",
+            reason="server_error",
+        )
+
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 class QueryRequest(BaseModel):
@@ -41,6 +79,7 @@ def health():
 @app.post("/query", response_model=QueryResponse)
 def query_documents(
     request: QueryRequest,
+    http_request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
 ):
     try:
@@ -48,6 +87,7 @@ def query_documents(
             username=user.user_id,
             question=request.question,
             verified_groups=user.groups,
+            request_id=http_request.state.request_id,
         )
 
         return QueryResponse(answer=answer)

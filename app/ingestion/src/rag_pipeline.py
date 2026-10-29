@@ -54,10 +54,17 @@ def answer_question(
     username: str,
     question: str,
     verified_groups: tuple[str, ...] | None = None,
+    *,
+    request_id: str | None = None,
 ) -> str:
     from identity import VerifiedIdentity
-    audit_subject = username.audit_subject if isinstance(username, VerifiedIdentity) else username
-    request_id = str(uuid.uuid4())
+
+    audit_subject = (
+        username.audit_subject
+        if isinstance(username, VerifiedIdentity)
+        else username
+    )
+    request_id = request_id or str(uuid.uuid4())
 
     if not question or not question.strip():
         raise ValueError("Question cannot be empty")

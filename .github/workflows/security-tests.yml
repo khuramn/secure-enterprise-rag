@@ -42,7 +42,36 @@ jobs:
           ENTRA_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
           ENTRA_FINANCE_GROUP_ID: 00000000-0000-0000-0000-000000000001
           ENTRA_EMPLOYEES_GROUP_ID: 00000000-0000-0000-0000-000000000002
+          RAG_AUDIT_HMAC_KEY: ci-only-audit-hmac-key-not-for-production-123456
         run: python test_acl_defense.py
+
+      - name: Run audit logger security tests
+        working-directory: app/ingestion/src
+        run: python test_audit_logger.py
+
+      - name: Run audit-event security tests
+        working-directory: app/ingestion/src
+        env:
+          AZURE_SEARCH_ENDPOINT: https://example.search.windows.net
+          AZURE_OPENAI_ENDPOINT: https://example.openai.azure.com/
+          ENTRA_TENANT_ID: 00000000-0000-0000-0000-000000000000
+          ENTRA_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+          ENTRA_FINANCE_GROUP_ID: 00000000-0000-0000-0000-000000000001
+          ENTRA_EMPLOYEES_GROUP_ID: 00000000-0000-0000-0000-000000000002
+          RAG_AUDIT_HMAC_KEY: ci-only-audit-hmac-key-not-for-production-123456
+        run: python test_audit_events.py
+
+      - name: Run correlation ID security tests
+        working-directory: app/ingestion/src
+        env:
+          AZURE_SEARCH_ENDPOINT: https://example.search.windows.net
+          AZURE_OPENAI_ENDPOINT: https://example.openai.azure.com/
+          ENTRA_TENANT_ID: 00000000-0000-0000-0000-000000000000
+          ENTRA_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+          ENTRA_FINANCE_GROUP_ID: 00000000-0000-0000-0000-000000000001
+          ENTRA_EMPLOYEES_GROUP_ID: 00000000-0000-0000-0000-000000000002
+          RAG_AUDIT_HMAC_KEY: ci-only-audit-hmac-key-not-for-production-123456
+        run: python test_correlation_ids.py
 
       - name: Run API error-handling tests
         working-directory: app/ingestion/src
@@ -53,4 +82,5 @@ jobs:
           ENTRA_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
           ENTRA_FINANCE_GROUP_ID: 00000000-0000-0000-0000-000000000001
           ENTRA_EMPLOYEES_GROUP_ID: 00000000-0000-0000-0000-000000000002
+          RAG_AUDIT_HMAC_KEY: ci-only-audit-hmac-key-not-for-production-123456
         run: python test_api_errors.py
