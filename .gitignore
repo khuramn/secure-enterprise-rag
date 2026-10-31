@@ -2,7 +2,8 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+*.tfplan
+*.tfplan.*
 
 # Local security audit logs
 app/ingestion/logs/
@@ -17,6 +18,7 @@ backend.hcl
 # Environment files
 .env
 .env.*
+!.env.example
 
 # macOS
 .DS_Store

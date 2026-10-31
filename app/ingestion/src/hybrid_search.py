@@ -35,11 +35,22 @@ def retrieve(client, groups, query, mode="hybrid", *, embed=None):
             vector=embed(query), k_nearest_neighbors=5, fields="content_vector"
         )], vector_filter_mode="preFilter")
     documents = list(client.search(search_text=query if mode != "vector" else None, **options))
-    # Defense in depth: never pass a result with a missing or mismatched ACL to the model.
+    # Defense in depth: enforce the same ACL policy after retrieval.
+    # "everyone" permits access to authenticated users, not anonymous callers.
+    effective_groups = set(groups) | {"everyone"}
+
     for document in documents:
         acl = document.get("allowed_groups")
-        if not isinstance(acl, list) or not all(isinstance(g, str) for g in acl) or not set(acl).intersection(groups):
-            raise PermissionError("Search returned an unauthorized document")
+
+        if (
+            not isinstance(acl, list)
+            or not acl
+            or not all(isinstance(g, str) and g.strip() for g in acl)
+            or not set(acl).intersection(effective_groups)
+        ):
+            raise PermissionError(
+                "Search returned an unauthorized document"
+            )
     return documents
 
 

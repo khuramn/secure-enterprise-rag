@@ -1,0 +1,6 @@
+resource_group_name  = "rg-tfstate-uks"
+storage_account_name = "your-storage-account-name"
+container_name       = "tfstate"
+key                  = "secure-enterprise-rag/dev.tfstate"
+
+use_azuread_auth     = true

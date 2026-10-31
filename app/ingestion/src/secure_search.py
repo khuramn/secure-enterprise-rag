@@ -29,10 +29,14 @@ def build_authorization_filter(groups):
             "Access denied: no authorized groups"
         )
 
+    # Public documents are accessible to authenticated users.
+    # Caller groups must originate from a trusted identity source.
+    effective_groups = tuple(groups) + ("everyone",)
+
     # Escape single quotes for OData filter safety.
     escaped_groups = [
         group.replace("'", "''")
-        for group in groups
+        for group in effective_groups
     ]
 
     clauses = [

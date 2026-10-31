@@ -26,6 +26,8 @@ ALLOWED_EVENTS = {
     "rag.response.completed",
     "rag.content_filter.triggered",
     "api.authentication.denied",
+    "api.authorization.denied",
+    "api.query.failed",
     "api.request.failed",
 }
 
@@ -40,6 +42,9 @@ ALLOWED_OUTCOMES = {
 ALLOWED_REASONS = {
     "unknown_identity",
     "authentication_failed",
+    "claims_policy",
+    "invalid_token",
+    "pipeline_failure",
     "server_error",
 }
 

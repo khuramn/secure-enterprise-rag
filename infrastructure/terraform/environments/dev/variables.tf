@@ -20,3 +20,8 @@ variable "owner" {
   description = "Resource owner"
   type        = string
 }
+
+variable "embedding_model_version" {
+  description = "Supported Azure OpenAI embedding model version"
+  type        = string
+}
