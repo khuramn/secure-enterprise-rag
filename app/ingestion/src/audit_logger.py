@@ -48,6 +48,8 @@ DOCUMENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 logger = logging.getLogger("secure_rag.audit")
 logger.setLevel(logging.INFO)
 logger.propagate = False
+azure_audit_logger = logging.getLogger("secure_rag.azure_audit")
+azure_audit_logger.setLevel(logging.INFO)
 
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -148,4 +150,15 @@ def audit_event(
         **safe_details,
     }
 
-    logger.info(json.dumps(event, ensure_ascii=False))
+    validated_event_json = json.dumps(event, ensure_ascii=False)
+
+    # Preserve the existing local audit trail.
+    logger.info(validated_event_json)
+
+    # Forward only the validated, pseudonymised event to Azure.
+    # Never allow an Azure logging failure to interrupt the request.
+    if os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"):
+        try:
+            azure_audit_logger.info(validated_event_json)
+        except Exception:
+            pass

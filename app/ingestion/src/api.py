@@ -8,9 +8,14 @@ from entra_auth import (
     AuthenticatedUser,
     get_current_user,
 )
+
 from rag_pipeline import answer_question
 from audit_logger import audit_event
+from telemetry import configure_telemetry
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry import trace
 
+configure_telemetry_enabled = configure_telemetry()
 
 app = FastAPI(
     title="Secure Enterprise RAG API",
@@ -25,6 +30,11 @@ app = FastAPI(
 async def correlation_id_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
+
+    span = trace.get_current_span()
+
+    if span.is_recording():
+        span.set_attribute("rag.request_id", request_id)
 
     try:
         response = await call_next(request)
@@ -97,3 +107,11 @@ def query_documents(
             status_code=403,
             detail="Access denied",
         )
+
+
+if configure_telemetry_enabled:
+    FastAPIInstrumentor.instrument_app(
+        app,
+        http_capture_headers_server_request=[],
+        http_capture_headers_server_response=[],
+    )
